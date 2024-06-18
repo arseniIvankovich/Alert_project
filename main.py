@@ -139,7 +139,8 @@ class LogParser:
 
 if __name__ == "__main__":
     error_parser = LogParser(FILEPATH, LOGS)
-    error_parser.df = error_parser.df[error_parser.df["severity"] == "Error"]
+    error_parser.df = error_parser.df[(error_parser.df["severity"] == "Error") & (
+        error_parser.df["error_code"] > 0)]
 
     error_parser.alert_message("sdk_date", "minute", 10)
     error_parser.alert_message(
