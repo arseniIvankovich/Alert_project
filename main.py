@@ -37,28 +37,37 @@ FILEPATH = os.environ.get("FILEPATH")
 
 
 class LogParser:
+    """
+    Get logs from csv file and parse them.
+    Sand information to the console.
+    """
+
     df: pd.DataFrame
 
     def __init__(self, path, logs) -> None:
         self.logs = logs
         self.path = path
 
-        self.df = pd.read_csv(
-            FILEPATH, names=logs, low_memory=False, skiprows=1
-        )
+        self.df = pd.read_csv(FILEPATH, names=logs, low_memory=False, skiprows=1)
         self.df["id"] = self.df.index
         self.time_transform("sdk_date")
 
-    def time_transform(self, field: str) -> None:
-        self.df[field] = (
-            self.df[field]
+    def time_transform(self, datefield: str) -> None:
+        """
+        Transform any time of date to the %d:%m:%Y:%H:%M:%S" format.
+
+        Args:
+            datefield (str): name of the date column in the csv.
+        """
+        self.df[datefield] = (
+            self.df[datefield]
             .str.replace("[^0-9./: -]", "", regex=True)
             .str.replace("[^0-9]", ":", regex=True)
             .str.split(":")
             .str[:6]
         )
 
-        for date in self.df[field]:
+        for date in self.df[datefield]:
             for zero_time in range(len(date)):
                 if date[zero_time] == "":
                     date[zero_time] = "01"
@@ -74,10 +83,24 @@ class LogParser:
             self.df[field].str.join(":"), format="%d:%m:%Y:%H:%M:%S"
         )
 
-    def get_id_df(
-        self, date: str, group_key: str, number: int, column=None, value=None
+    def get_df_with_id(
+        self, date_column: str, time_period: str, number: int, column=None, value=None
     ) -> pd.DataFrame:
+        """
+        Get from dataframe indices according to the rule. For a specified period of time
+        and the number of messages after which you need to notify. So it can take the name of the column and
+        the value from it for detailed tracking of actions.
 
+        Args:
+            date_column (str): column from dataframe from where the date is extracted
+            time_period (str): the time period for which the logs will be read. Takes values: day, month, year, minute, hour, second
+            number (int): the number of messages through which the notification will occur.
+            column (_type_, optional): optional parameter, name of column, for tracking the actions of a specific user. Defaults to None.
+            value (_type_, optional): one of the colum values for tracking actions.. Defaults to None.
+
+        Returns:
+            pd.DataFrame: dataframe wit indices.
+        """
         df_indices: pd.DataFrame
 
         if column is None and value is None:
@@ -95,12 +118,12 @@ class LogParser:
             )
 
         separated_date = [
-            self.df[date].dt.day,
-            self.df[date].dt.month,
-            self.df[date].dt.year,
-            self.df[date].dt.hour,
-            self.df[date].dt.minute,
-            self.df[date].dt.second,
+            self.df[date_column].dt.day,
+            self.df[date_column].dt.month,
+            self.df[date_column].dt.year,
+            self.df[date_column].dt.hour,
+            self.df[date_column].dt.minute,
+            self.df[date_column].dt.second,
         ]
 
         grouped_values = {
@@ -112,35 +135,46 @@ class LogParser:
             "second": separated_date[:5],
         }
 
-        if group_key not in grouped_values:
+        if time_period not in grouped_values:
             logging.error(
                 f"group_key can only take values: day, month, year, hour, minute or second",
                 exc_info=True,
             )
 
-        df_indices = df_indices.groupby(grouped_values[group_key])[
-            "id"].apply(list)
+        df_indices = df_indices.groupby(grouped_values[time_period])["id"].apply(list)
 
         df_indices = df_indices[df_indices.str.len() >= number]
 
         return df_indices
 
     def alert_message(
-        self, date_column: str, date: str, number: int, column=None, value=None
+        self, date_column: str, time_period: str, number: int, column=None, value=None
     ) -> None:
+        """
+        Write log to the the console.
 
-        df_indices = self.get_id_df(
-            date_column, date, number, column, value)
-        logging.info(f"During {date} you have {len(df_indices)} alert messages!")
+        Args:
+            date_column (str): column from dataframe from where the date is extracted
+            time_period (str): the time period for which the logs will be read. Takes values: day, month, year, minute, hour, second
+            number (int): the number of messages through which the notification will occur.
+            column (_type_, optional): optional parameter, name of column, for tracking the actions of a specific user. Defaults to None.
+            value (_type_, optional): one of the colum values for tracking actions.. Defaults to None.
+
+        """
+        df_indices = self.get_df_with_id(
+            date_column, time_period, number, column, value
+        )
+        logging.info(f"During {time_period} you have {len(df_indices)} alert messages!")
 
         for index_list in df_indices:
-            logging.info(f"\tAlert number: {len(index_list)}")
+            logging.info(f"\tLogs number: {len(index_list)}")
 
 
 if __name__ == "__main__":
     error_parser = LogParser(FILEPATH, LOGS)
-    error_parser.df = error_parser.df[(error_parser.df["severity"] == "Error") & (
-        error_parser.df["error_code"] > 0)]
+    error_parser.df = error_parser.df[
+        (error_parser.df["severity"] == "Error") & (error_parser.df["error_code"] > 0)
+    ]
 
     error_parser.alert_message("sdk_date", "minute", 10)
     error_parser.alert_message(
