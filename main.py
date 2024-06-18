@@ -44,7 +44,7 @@ class LogParser:
         self.path = path
 
         self.df = pd.read_csv(
-            "include/data.csv", names=logs, low_memory=False, skiprows=1
+            FILEPATH, names=logs, low_memory=False, skiprows=1
         )
         self.df["id"] = self.df.index
         self.time_transform("sdk_date")
@@ -131,8 +131,7 @@ class LogParser:
 
         df_indices = self.get_id_df(
             date_column, date, number, column, value)
-        logging.info(f"During {date} you have {
-                     len(df_indices)} alert messages!")
+        logging.info(f"During {date} you have {len(df_indices)} alert messages!")
 
         for index_list in df_indices:
             logging.info(f"\tAlert number: {len(index_list)}")
