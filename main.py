@@ -69,18 +69,22 @@ class LogParser:
 
         for date in self.df[datefield]:
             for zero_time in range(len(date)):
+                #fills in the empty spaces in the date
                 if date[zero_time] == "":
                     date[zero_time] = "01"
 
+            #swaps the year and day
             if len(date[0]) == 4:
                 date[0], date[2] = date[2], date[0]
+            #adds a century
             if len(date[2]) == 2:
                 date[2] = "20".join(date[2])
+            #swap the day and month
             if int(date[1]) > 12:
                 date[0], date[1] = date[1], date[0]
 
-        self.df[field] = pd.to_datetime(
-            self.df[field].str.join(":"), format="%d:%m:%Y:%H:%M:%S"
+        self.df[datefield] = pd.to_datetime(
+            self.df[datefield].str.join(":"), format="%d:%m:%Y:%H:%M:%S"
         )
 
     def get_df_with_id(
@@ -107,7 +111,7 @@ class LogParser:
             df_indices = self.df
         elif column is not None and value is not None:
             if value in self.df[column].unique():
-                df_indices = self.df[self.df[column] == value]
+                df_indices = self.df[self.df[column] >= value]
             else:
                 logging.error(
                     f"Column {column} doesn't have value {value}", exc_info=True
